@@ -1,0 +1,13 @@
+Firebase-ready next step for Manana360 V4
+
+Suggested collections:
+- leads
+- demo_requests
+- franchise_applications
+- contact_messages
+- industry_enquiries
+- users
+- businesses
+
+Current app.js saves enquiries in localStorage for testing only.
+When Firebase is connected, replace saveEnquiry() with Firestore addDoc().
