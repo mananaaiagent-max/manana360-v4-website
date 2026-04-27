@@ -1,13 +1,104 @@
-const WHATSAPP='919581179117';
-const STORE='manana360_v4_enquiries';
-function qs(s,root=document){return root.querySelector(s)}
-function qsa(s,root=document){return [...root.querySelectorAll(s)]}
-function getEnquiries(){try{return JSON.parse(localStorage.getItem(STORE)||'[]')}catch{return[]}}
-function saveEnquiries(list){localStorage.setItem(STORE,JSON.stringify(list))}
-function saveEnquiry(type,data){const list=getEnquiries();list.unshift({id:'M360-'+Date.now(),type,status:'New',createdAt:new Date().toLocaleString(),...data});saveEnquiries(list)}
-function formData(form){return Object.fromEntries(new FormData(form).entries())}
-function waLink(message){return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`}
-function bindForms(){qsa('[data-lead-form]').forEach(form=>{form.addEventListener('submit',e=>{e.preventDefault();const data=formData(form);const type=form.getAttribute('data-lead-form')||'lead';saveEnquiry(type,data);const msg=`Manana360 ${type} enquiry%0AName: ${data.name||''}%0AMobile: ${data.mobile||''}%0ABusiness: ${data.businessType||data.industry||''}%0ACity: ${data.city||''}%0ARequirement: ${data.requirement||''}`;alert('Thank you. Your enquiry is saved in V4 demo admin dashboard. Next step: connect Firebase for cloud saving.');form.reset();const openWa=form.getAttribute('data-whatsapp')==='true';if(openWa) window.open(waLink(msg),'_blank');});});qsa('[data-wa]').forEach(a=>{a.href=waLink(a.getAttribute('data-wa')||'I want Manana360 demo')});}
-function renderAdmin(){const box=qs('#adminList');if(!box)return;const list=getEnquiries();qs('#totalLeads').textContent=list.length;qs('#newLeads').textContent=list.filter(x=>x.status==='New').length;qs('#demoLeads').textContent=list.filter(x=>String(x.type).includes('demo')).length;qs('#franchiseLeads').textContent=list.filter(x=>String(x.type).includes('franchise')).length;if(!list.length){box.innerHTML='<div class="notice">No enquiries yet. Submit a form from Contact / Franchise / Home page first.</div>';return}box.innerHTML=`<table class="table"><thead><tr><th>Date</th><th>Type</th><th>Name</th><th>Mobile</th><th>Business</th><th>Status</th></tr></thead><tbody>${list.map((x,i)=>`<tr><td>${x.createdAt}</td><td>${x.type}</td><td>${x.name||'-'}</td><td>${x.mobile||'-'}</td><td>${x.businessType||x.industry||'-'}</td><td><select data-status="${i}"><option ${x.status==='New'?'selected':''}>New</option><option ${x.status==='Contacted'?'selected':''}>Contacted</option><option ${x.status==='Demo Scheduled'?'selected':''}>Demo Scheduled</option><option ${x.status==='Closed'?'selected':''}>Closed</option></select></td></tr>`).join('')}</tbody></table>`;qsa('[data-status]').forEach(sel=>sel.addEventListener('change',()=>{const arr=getEnquiries();arr[sel.dataset.status].status=sel.value;saveEnquiries(arr);renderAdmin()}));}
-function clearAdmin(){if(confirm('Clear local demo enquiries?')){localStorage.removeItem(STORE);renderAdmin()}}
-document.addEventListener('DOMContentLoaded',()=>{bindForms();renderAdmin();const c=qs('#clearAdmin');if(c)c.addEventListener('click',clearAdmin)});
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const WHATSAPP = "919581179117";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDuOLUT9QVZmGfzrvmysBX0Mgvqk6LYxMM",
+  authDomain: "manana360-claude.firebaseapp.com",
+  projectId: "manana360-claude",
+  storageBucket: "manana360-claude.firebasestorage.app",
+  messagingSenderId: "234206031398",
+  appId: "1:234206031398:web:83cab2c5c229050b5dc0e7"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+function qs(s, root = document) {
+  return root.querySelector(s);
+}
+
+function qsa(s, root = document) {
+  return [...root.querySelectorAll(s)];
+}
+
+function formData(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+function waLink(message) {
+  return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+}
+
+async function saveEnquiry(type, data) {
+  await addDoc(collection(db, "enquiries"), {
+    type,
+    ...data,
+    status: "New",
+    createdAt: new Date().toISOString()
+  });
+}
+
+function bindForms() {
+  qsa("[data-lead-form]").forEach((form) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const data = formData(form);
+      const type = form.getAttribute("data-lead-form") || "lead";
+
+      try {
+        await saveEnquiry(type, data);
+
+        const msg =
+          `Manana360 ${type} enquiry\n` +
+          `Name: ${data.name || ""}\n` +
+          `Mobile: ${data.mobile || ""}\n` +
+          `Business: ${data.businessType || data.industry || ""}\n` +
+          `City: ${data.city || ""}\n` +
+          `Requirement: ${data.requirement || ""}`;
+
+        alert("Saved to Firebase cloud successfully 🚀");
+        form.reset();
+
+        const openWa = form.getAttribute("data-whatsapp") === "true";
+        if (openWa) window.open(waLink(msg), "_blank");
+      } catch (error) {
+        console.error("Firebase save error:", error);
+        alert("Error saving data. Please check Firebase Firestore rules.");
+      }
+    });
+  });
+
+  qsa("[data-wa]").forEach((a) => {
+    a.href = waLink(a.getAttribute("data-wa") || "I want Manana360 demo");
+  });
+}
+
+function renderAdmin() {
+  const box = qs("#adminList");
+  if (!box) return;
+
+  box.innerHTML =
+    '<div class="notice">Firebase cloud saving is active. Admin live cloud data view will be connected in the next step. Please check Firestore → enquiries for submitted leads.</div>';
+
+  const total = qs("#totalLeads");
+  const newLeads = qs("#newLeads");
+  const demoLeads = qs("#demoLeads");
+  const franchiseLeads = qs("#franchiseLeads");
+
+  if (total) total.textContent = "Cloud";
+  if (newLeads) newLeads.textContent = "ON";
+  if (demoLeads) demoLeads.textContent = "Firebase";
+  if (franchiseLeads) franchiseLeads.textContent = "Next";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  bindForms();
+  renderAdmin();
+});
